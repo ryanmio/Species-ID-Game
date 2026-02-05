@@ -1,10 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
-    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.inaturalist.org',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.cloudinary.net',
+      },
+    ],
   },
 }
 
