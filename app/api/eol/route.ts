@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// API timeout configuration (in milliseconds)
+const API_TIMEOUT = 10000; // 10 seconds per iNaturalist request
+const ROUTE_TIMEOUT = 30000; // 30 seconds total for the route
+
 // iNaturalist API types
 interface INatTaxon {
   id: number;
@@ -103,43 +107,62 @@ function formatName(taxon: INatTaxon): string {
   return taxon.name;
 }
 
+// Helper to fetch with timeout
+async function fetchWithTimeout(url: string, timeoutMs: number = API_TIMEOUT): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "Accept": "application/json",
+        "User-Agent": "AnimalGuessingGame/1.0"
+      }
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 // Fetch a single random species with good photos from a taxon group
 async function fetchRandomSpecies(taxonId: number): Promise<INatTaxon | null> {
   const randomPage = Math.floor(Math.random() * 20) + 1;
   const url = `https://api.inaturalist.org/v1/taxa?taxon_id=${taxonId}&rank=species&per_page=30&page=${randomPage}&photos=true&order=desc&order_by=observations_count`;
   
-  const response = await fetch(url, {
-    headers: {
-      "Accept": "application/json",
-      "User-Agent": "AnimalGuessingGame/1.0"
-    }
-  });
-  
-  if (!response.ok) return null;
-  
-  const data: INatTaxaResponse = await response.json();
-  const taxaWithPhotos = data.results.filter(t => t.default_photo?.medium_url || t.default_photo?.url);
-  
-  if (taxaWithPhotos.length === 0) return null;
-  
-  return taxaWithPhotos[Math.floor(Math.random() * taxaWithPhotos.length)];
+  try {
+    const response = await fetchWithTimeout(url);
+    
+    if (!response.ok) return null;
+    
+    const data: INatTaxaResponse = await response.json();
+    const taxaWithPhotos = data.results.filter(t => t.default_photo?.medium_url || t.default_photo?.url);
+    
+    if (taxaWithPhotos.length === 0) return null;
+    
+    return taxaWithPhotos[Math.floor(Math.random() * taxaWithPhotos.length)];
+  } catch (err) {
+    console.error("[iNat API] Timeout fetching random species:", err);
+    return null;
+  }
 }
 
 // Get detailed taxon info including ancestors
 async function getTaxonDetails(taxonId: number): Promise<INatTaxonDetail | null> {
   const url = `https://api.inaturalist.org/v1/taxa/${taxonId}`;
   
-  const response = await fetch(url, {
-    headers: {
-      "Accept": "application/json",
-      "User-Agent": "AnimalGuessingGame/1.0"
-    }
-  });
-  
-  if (!response.ok) return null;
-  
-  const data = await response.json();
-  return data.results?.[0] || null;
+  try {
+    const response = await fetchWithTimeout(url);
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    return data.results?.[0] || null;
+  } catch (err) {
+    console.error("[iNat API] Timeout fetching taxon details:", err);
+    return null;
+  }
 }
 
 // Find ancestor at a specific rank
@@ -173,43 +196,44 @@ async function fetchSpeciesFromTaxon(
     attempts++;
     const url = `https://api.inaturalist.org/v1/taxa?taxon_id=${taxonId}&rank=species&per_page=100&page=${page}&photos=true&order=desc&order_by=observations_count`;
     
-    const response = await fetch(url, {
-      headers: {
-        "Accept": "application/json",
-        "User-Agent": "AnimalGuessingGame/1.0"
+    try {
+      const response = await fetchWithTimeout(url);
+      
+      if (!response.ok) {
+        page++;
+        continue;
       }
-    });
-    
-    if (!response.ok) {
+      
+      const data: INatTaxaResponse = await response.json();
+      
+      // If no more results, stop
+      if (data.results.length === 0) break;
+      
+      for (const taxon of data.results) {
+        if (results.length >= count) break;
+        if (excludeIds.includes(taxon.id)) continue;
+        
+        // LOCAL FILTERING: Check if this taxon belongs to the excluded taxon using ancestor_ids
+        // ancestor_ids contains all ancestor taxon IDs for this species
+        if (excludeTaxonId && taxon.ancestor_ids && taxon.ancestor_ids.includes(excludeTaxonId)) {
+          continue; // Skip - this species belongs to the excluded taxon
+        }
+        
+        const name = formatName(taxon);
+        if (seenNames.has(name.toLowerCase())) continue;
+        
+        if (taxon.default_photo?.medium_url || taxon.default_photo?.url) {
+          results.push(taxon);
+          seenNames.add(name.toLowerCase());
+        }
+      }
+      
+      page++;
+    } catch (err) {
+      console.error("[iNat API] Timeout fetching species from taxon:", err);
       page++;
       continue;
     }
-    
-    const data: INatTaxaResponse = await response.json();
-    
-    // If no more results, stop
-    if (data.results.length === 0) break;
-    
-    for (const taxon of data.results) {
-      if (results.length >= count) break;
-      if (excludeIds.includes(taxon.id)) continue;
-      
-      // LOCAL FILTERING: Check if this taxon belongs to the excluded taxon using ancestor_ids
-      // ancestor_ids contains all ancestor taxon IDs for this species
-      if (excludeTaxonId && taxon.ancestor_ids && taxon.ancestor_ids.includes(excludeTaxonId)) {
-        continue; // Skip - this species belongs to the excluded taxon
-      }
-      
-      const name = formatName(taxon);
-      if (seenNames.has(name.toLowerCase())) continue;
-      
-      if (taxon.default_photo?.medium_url || taxon.default_photo?.url) {
-        results.push(taxon);
-        seenNames.add(name.toLowerCase());
-      }
-    }
-    
-    page++;
   }
   
   return results;
@@ -363,8 +387,9 @@ export async function GET(request: NextRequest) {
       });
     } catch (err) {
       console.error("[iNat API] Error in attempt", attempts, ":", err);
-      // Add a small delay before retrying to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Add exponential backoff: 1s, 2s, 4s, etc.
+      const backoffMs = Math.min(1000 * Math.pow(2, attempts - 1), 5000);
+      await new Promise(resolve => setTimeout(resolve, backoffMs));
       if (attempts >= maxRetries) {
         return NextResponse.json(
           { error: "Failed to fetch animal question" },
