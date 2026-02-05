@@ -5,6 +5,50 @@ import type { NextRequest } from "next/server";
 const API_TIMEOUT = 10000; // 10 seconds per iNaturalist request
 const ROUTE_TIMEOUT = 30000; // 30 seconds total for the route
 
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute sliding window
+const RATE_LIMIT_MAX_REQUESTS = 30; // Max 30 requests per minute per IP
+const requestLog = new Map<string, number[]>(); // IP -> timestamps of requests
+
+function getClientIp(request: NextRequest): string {
+  return request.ip || request.headers.get("x-forwarded-for") || "unknown";
+}
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const timestamps = requestLog.get(ip) || [];
+  
+  // Remove timestamps outside the window
+  const recentTimestamps = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW);
+  
+  // Update the log
+  requestLog.set(ip, recentTimestamps);
+  
+  // Check if over limit
+  if (recentTimestamps.length >= RATE_LIMIT_MAX_REQUESTS) {
+    return true;
+  }
+  
+  // Record this request
+  recentTimestamps.push(now);
+  requestLog.set(ip, recentTimestamps);
+  
+  return false;
+}
+
+// Cleanup old entries every 5 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, timestamps] of requestLog.entries()) {
+    const recentTimestamps = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW);
+    if (recentTimestamps.length === 0) {
+      requestLog.delete(ip);
+    } else {
+      requestLog.set(ip, recentTimestamps);
+    }
+  }
+}, 5 * 60 * 1000);
+
 // iNaturalist API types
 interface INatTaxon {
   id: number;
@@ -240,6 +284,15 @@ async function fetchSpeciesFromTaxon(
 }
 
 export async function GET(request: NextRequest) {
+  // Check rate limit first
+  const clientIp = getClientIp(request);
+  if (isRateLimited(clientIp)) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded. Maximum 30 requests per minute." },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const difficulty = (searchParams.get("difficulty") || "easy") as Difficulty;
   const taxaParam = searchParams.get("taxa");
