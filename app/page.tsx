@@ -2,9 +2,8 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { GameCard } from "@/components/game-card";
-import { ScoreBoard } from "@/components/score-board";
+import { ScoreBoardWithSettings } from "@/components/score-board-with-settings";
 import { LoadingSpinner } from "@/components/loading-spinner";
-import { GameSettings } from "@/components/game-settings";
 import { fetchAnimalQuestion, type AnimalQuestion, type Difficulty } from "@/lib/eol-api";
 
 const ANIMAL_GROUPS_IDS = [40151, 3, 47178, 26036, 20978, 47158, 47119, 47115, 47157];
@@ -89,14 +88,11 @@ export default function Home() {
           </p>
         </header>
 
-        <div className="space-y-3 mb-6">
-          <ScoreBoard
+        <div className="mb-6">
+          <ScoreBoardWithSettings
             score={score}
             totalQuestions={totalQuestions}
             onReset={handleReset}
-          />
-
-          <GameSettings
             difficulty={difficulty}
             onDifficultyChange={handleDifficultyChange}
             enabledTaxa={enabledTaxa}
