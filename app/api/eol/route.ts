@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { CacheManager, createCacheKey } from "@/lib/cache";
 
 // API timeout configuration (in milliseconds)
 const API_TIMEOUT = 10000; // 10 seconds per iNaturalist request
 const ROUTE_TIMEOUT = 30000; // 30 seconds total for the route
+
+// Initialize cache for API responses (50MB max, 5 minute TTL)
+const apiCache = new CacheManager<INatTaxon | INatTaxaResponse | INatTaxonDetail>(50 * 1024 * 1024);
 
 // Rate limiting configuration
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute sliding window
@@ -151,8 +155,19 @@ function formatName(taxon: INatTaxon): string {
   return taxon.name;
 }
 
-// Helper to fetch with timeout
-async function fetchWithTimeout(url: string, timeoutMs: number = API_TIMEOUT): Promise<Response> {
+// Helper to fetch with timeout and caching
+async function fetchWithTimeout(url: string, timeoutMs: number = API_TIMEOUT, cacheKeyOverride?: string): Promise<Response> {
+  const cacheKey = cacheKeyOverride || url;
+  
+  // Check cache first
+  const cached = apiCache.get(cacheKey);
+  if (cached) {
+    // Return cached response as a Response object
+    return new Response(JSON.stringify(cached), {
+      headers: { "Content-Type": "application/json", "X-Cache": "HIT" }
+    });
+  }
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   
@@ -164,6 +179,17 @@ async function fetchWithTimeout(url: string, timeoutMs: number = API_TIMEOUT): P
         "User-Agent": "AnimalGuessingGame/1.0"
       }
     });
+    
+    // Cache successful responses (5 minutes)
+    if (response.ok) {
+      const data = await response.clone().json();
+      apiCache.set(cacheKey, data, 5 * 60 * 1000);
+      
+      return new Response(JSON.stringify(data), {
+        headers: { "Content-Type": "application/json", "X-Cache": "MISS" }
+      });
+    }
+    
     return response;
   } finally {
     clearTimeout(timeoutId);
