@@ -4,9 +4,10 @@ import { useState, useCallback, useEffect } from "react";
 import { GameCard } from "@/components/game-card";
 import { ScoreBoard } from "@/components/score-board";
 import { LoadingSpinner } from "@/components/loading-spinner";
-import { DifficultySelector } from "@/components/difficulty-selector";
-import { TaxaFilter, ANIMAL_GROUPS } from "@/components/taxa-filter";
+import { GameSettings } from "@/components/game-settings";
 import { fetchAnimalQuestion, type AnimalQuestion, type Difficulty } from "@/lib/eol-api";
+
+const ANIMAL_GROUPS_IDS = [40151, 3, 47178, 26036, 20978, 47158, 47119, 47115, 47157];
 
 export default function Home() {
   const [question, setQuestion] = useState<AnimalQuestion | null>(null);
@@ -17,9 +18,7 @@ export default function Home() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
-  const [enabledTaxa, setEnabledTaxa] = useState<number[]>(() => 
-    ANIMAL_GROUPS.map((g) => g.id)
-  );
+  const [enabledTaxa, setEnabledTaxa] = useState<number[]>(() => ANIMAL_GROUPS_IDS);
 
   const loadNewQuestion = useCallback(async (diff: Difficulty, taxa: number[]) => {
     setLoading(true);
@@ -90,23 +89,21 @@ export default function Home() {
           </p>
         </header>
 
-        <DifficultySelector
-          difficulty={difficulty}
-          onChange={handleDifficultyChange}
-          disabled={loading}
-        />
+        <div className="space-y-3 mb-6">
+          <ScoreBoard
+            score={score}
+            totalQuestions={totalQuestions}
+            onReset={handleReset}
+          />
 
-        <TaxaFilter
-          enabledTaxa={enabledTaxa}
-          onChange={handleTaxaChange}
-          disabled={loading}
-        />
-
-        <ScoreBoard
-          score={score}
-          totalQuestions={totalQuestions}
-          onReset={handleReset}
-        />
+          <GameSettings
+            difficulty={difficulty}
+            onDifficultyChange={handleDifficultyChange}
+            enabledTaxa={enabledTaxa}
+            onTaxaChange={handleTaxaChange}
+            disabled={loading}
+          />
+        </div>
 
         {loading ? (
           <LoadingSpinner />
