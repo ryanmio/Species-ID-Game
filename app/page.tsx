@@ -104,8 +104,14 @@ export default function Home() {
         {loading ? (
           <LoadingSpinner />
         ) : error ? (
-          <div className="text-center py-12">
-            <p className="text-destructive mb-4">{error}</p>
+          <div className="bg-card rounded-xl shadow-lg border border-border p-8 text-center">
+            <div className="mb-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-destructive/10 mb-4">
+                <span className="text-xl">⚠️</span>
+              </div>
+            </div>
+            <h3 className="text-lg font-semibold text-card-foreground mb-2">Couldn't load animal</h3>
+            <p className="text-sm text-muted-foreground mb-6">{error}</p>
             <button
               onClick={() => loadNewQuestion(difficulty, enabledTaxa)}
               className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity font-medium"
