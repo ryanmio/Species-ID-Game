@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import type { AnimalQuestion } from "@/lib/eol-api";
+import { getSafeImageUrl } from "@/lib/image-utils";
 import { cn } from "@/lib/utils";
-import { Check, X, ArrowRight, ExternalLink } from "lucide-react";
+import { Check, X, ArrowRight, ExternalLink, AlertCircle } from "lucide-react";
 
 interface GameCardProps {
   question: AnimalQuestion;
@@ -22,6 +23,7 @@ export function GameCard({
 }: GameCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const safeImageUrl = getSafeImageUrl(question.imageUrl);
 
   // Reset image state when question changes
   useEffect(() => {
@@ -41,12 +43,13 @@ export function GameCard({
           </div>
         )}
         {imageError ? (
-          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-            <p>Image unavailable</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-destructive/5 flex-col gap-2">
+            <AlertCircle className="w-8 h-8 text-destructive" />
+            <p className="text-sm text-destructive font-medium">Image unavailable</p>
           </div>
         ) : (
           <img
-            src={question.imageUrl || "/placeholder.svg"}
+            src={safeImageUrl}
             alt="Mystery animal"
             className={cn(
               "w-full h-full object-cover transition-opacity duration-300",

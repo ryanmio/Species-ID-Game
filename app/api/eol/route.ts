@@ -325,6 +325,20 @@ export async function GET(request: NextRequest) {
       const imageUrl = correctTaxon.default_photo?.medium_url || correctTaxon.default_photo?.url || "";
       if (!imageUrl) continue;
       
+      // Validate image URL is from trusted source
+      try {
+        const urlObj = new URL(imageUrl);
+        const trustedDomains = ["inaturalist.org", "cloudinary.net", "staticflickr.com", "upload.wikimedia.org"];
+        const isTrusted = trustedDomains.some(domain => urlObj.hostname.includes(domain));
+        if (!isTrusted) {
+          console.warn("[iNat API] Image from untrusted domain:", urlObj.hostname);
+          continue;
+        }
+      } catch (err) {
+        console.warn("[iNat API] Invalid image URL:", imageUrl);
+        continue;
+      }
+      
       const correctAnswer = formatName(correctTaxon);
       
       // Get the taxon's ancestors to find the right taxonomic level for distractors
