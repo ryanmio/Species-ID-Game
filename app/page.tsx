@@ -57,12 +57,6 @@ export default function Home() {
     loadNewQuestion(difficulty, enabledTaxa);
   };
 
-  const handleReset = () => {
-    setScore(0);
-    setTotalQuestions(0);
-    loadNewQuestion(difficulty, enabledTaxa);
-  };
-
   const handleTaxaChange = (newTaxa: number[]) => {
     setEnabledTaxa(newTaxa);
   };
@@ -92,7 +86,6 @@ export default function Home() {
           <ScoreBoardWithSettings
             score={score}
             totalQuestions={totalQuestions}
-            onReset={handleReset}
             difficulty={difficulty}
             onDifficultyChange={handleDifficultyChange}
             enabledTaxa={enabledTaxa}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trophy, RotateCcw, Settings, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { Trophy, Settings, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Difficulty } from "@/lib/eol-api";
 import type { TaxonGroup } from "@/components/taxa-filter";
@@ -40,7 +40,6 @@ const DIFFICULTY_INFO: Record<Difficulty, { label: string; description: string }
 interface ScoreBoardWithSettingsProps {
   score: number;
   totalQuestions: number;
-  onReset: () => void;
   difficulty: Difficulty;
   onDifficultyChange: (difficulty: Difficulty) => void;
   enabledTaxa: number[];
@@ -51,7 +50,6 @@ interface ScoreBoardWithSettingsProps {
 export function ScoreBoardWithSettings({
   score,
   totalQuestions,
-  onReset,
   difficulty,
   onDifficultyChange,
   enabledTaxa,
@@ -140,35 +138,23 @@ export function ScoreBoardWithSettings({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {totalQuestions > 0 && (
-              <button
-                onClick={onReset}
-                className="p-2 text-muted-foreground hover:text-card-foreground hover:bg-secondary rounded-lg transition-colors"
-                aria-label="Reset score"
-                title="Reset score"
-              >
-                <RotateCcw className="w-5 h-5" />
-              </button>
+          <button
+            onClick={() => {
+              if (!isExpanded) {
+                setPendingTaxa(enabledTaxa);
+                setPendingDifficulty(difficulty);
+              }
+              setIsExpanded(!isExpanded);
+            }}
+            className="p-2 text-muted-foreground hover:text-card-foreground hover:bg-secondary rounded-lg transition-colors"
+            aria-label="Toggle settings"
+          >
+            {isExpanded ? (
+              <ChevronUp className="w-5 h-5" />
+            ) : (
+              <ChevronDown className="w-5 h-5" />
             )}
-            <button
-              onClick={() => {
-                if (!isExpanded) {
-                  setPendingTaxa(enabledTaxa);
-                  setPendingDifficulty(difficulty);
-                }
-                setIsExpanded(!isExpanded);
-              }}
-              className="p-2 text-muted-foreground hover:text-card-foreground hover:bg-secondary rounded-lg transition-colors"
-              aria-label="Toggle settings"
-            >
-              {isExpanded ? (
-                <ChevronUp className="w-5 h-5" />
-              ) : (
-                <ChevronDown className="w-5 h-5" />
-              )}
-            </button>
-          </div>
+          </button>
         </div>
       </div>
 
