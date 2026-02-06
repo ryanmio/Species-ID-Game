@@ -108,7 +108,7 @@ export function ScoreBoardWithSettings({
       {/* Score Header - Always Visible */}
       <div className="p-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-1">
             <div className="flex items-center gap-2">
               <Trophy className="w-5 h-5 text-accent" />
               <span className="text-sm text-muted-foreground">Score</span>
@@ -130,6 +130,14 @@ export function ScoreBoardWithSettings({
                 {percentage}%
               </div>
             )}
+
+            {/* Settings Summary - Visible Always */}
+            <div className="hidden sm:flex items-center gap-2 ml-auto text-xs text-muted-foreground">
+              <span className="text-muted-foreground">•</span>
+              <span>{DIFFICULTY_INFO[difficulty].label}</span>
+              <span className="text-muted-foreground">•</span>
+              <span>{summaryText}</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
