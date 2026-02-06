@@ -337,7 +337,7 @@ export async function GET(request: NextRequest) {
     }
   }
   
-  const maxRetries = 12;
+  const maxRetries = 8;
   let attempts = 0;
 
   while (attempts < maxRetries) {
@@ -428,10 +428,16 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // For hard mode, if we couldn't find 3 distractors at family level,
-      // skip this species and try another - don't fall back to order level
-      if (difficulty === "hard" && distractors.length < 3) {
-        continue;
+      // For hard mode, if we couldn't find 3 distractors at family level, try order level
+      if (difficulty === "hard" && distractors.length < 3 && orderAncestor?.id) {
+        const orderTaxa = await fetchSpeciesFromTaxon(orderAncestor.id, 10, [correctTaxon.id]);
+        for (const taxon of orderTaxa) {
+          if (distractors.length >= 3) break;
+          const name = formatName(taxon);
+          if (name.toLowerCase() !== correctAnswer.toLowerCase() && !distractors.includes(name)) {
+            distractors.push(name);
+          }
+        }
       }
       
       // For expert mode, if genus doesn't have enough, try family level as fallback
@@ -450,23 +456,24 @@ export async function GET(request: NextRequest) {
             actualRank = "family";
           }
         }
-        // If still not enough at family level, skip this species
-        if (distractors.length < 3) {
-          continue;
+        // If still not enough at family level, try order level
+        if (distractors.length < 3 && orderAncestor?.id) {
+          const orderTaxa = await fetchSpeciesFromTaxon(orderAncestor.id, 10, [correctTaxon.id]);
+          for (const taxon of orderTaxa) {
+            if (distractors.length >= 3) break;
+            const name = formatName(taxon);
+            if (name.toLowerCase() !== correctAnswer.toLowerCase() && !distractors.includes(name)) {
+              distractors.push(name);
+            }
+          }
+          if (distractors.length >= 3) {
+            actualRank = "order";
+          }
         }
       }
       
-      // For easy mode, if we can't find enough distractors from different orders,
-      // skip this species - we don't want to show similar animals on easy mode
-      if (difficulty === "easy" && distractors.length < 3) {
-        continue;
-      }
-      
-      // For medium mode, if we can't find enough from different families in the order,
-      // skip this species
-      if (difficulty === "medium" && distractors.length < 3) {
-        continue;
-      }
+      // For all modes, if we still don't have enough, accept what we have
+      // Better to show a question than fail completely
       
       // Last resort fallback
       while (distractors.length < 3) {
