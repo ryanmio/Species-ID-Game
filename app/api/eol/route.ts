@@ -15,7 +15,12 @@ const RATE_LIMIT_MAX_REQUESTS = 30; // Max 30 requests per minute per IP
 const requestLog = new Map<string, number[]>(); // IP -> timestamps of requests
 
 function getClientIp(request: NextRequest): string {
-  return request.ip || request.headers.get("x-forwarded-for") || "unknown";
+  // Try various headers that might contain the client IP
+  const forwarded = request.headers.get("x-forwarded-for");
+  const realIp = request.headers.get("x-real-ip");
+  const cfConnectingIp = request.headers.get("cf-connecting-ip");
+  
+  return forwarded?.split(",")[0].trim() || realIp || cfConnectingIp || "unknown";
 }
 
 function isRateLimited(ip: string): boolean {
