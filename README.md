@@ -2,71 +2,38 @@
 
 A web-based animal identification quiz game powered by iNaturalist API data.
 
-## Overview
+Users identify animals from images with adjustable difficulty levels and animal group filtering. Built with Next.js, TypeScript, and Tailwind CSS.
 
-Interactive guessing game where users identify animals from images. Features difficulty levels (Easy → Expert) and animal group filtering.
+## Difficulty Logic
 
-## Tech Stack
+The game uses **taxonomy-based distractors** to adjust difficulty:
 
-- **Framework**: Next.js 16 (React 19)
-- **Styling**: Tailwind CSS + shadcn/ui
-- **Language**: TypeScript
-- **API**: iNaturalist v1 API (animal data)
-- **Hosting**: Optimized for Vercel
+### Easy
+- **Question animal**: Random species from selected group
+- **Distractors**: Same class (e.g., all mammals), but different orders
+- **Example**: Show a lion, give options: lion, whale, bat, primate (all mammals but very different)
 
-## Key Features
+### Medium
+- **Distractors**: Same order as question, but different families
+- **Example**: Show a lion, give options: lion, dog, cat, hyena (all carnivores but different families)
 
-- 4 difficulty levels with taxonomy-based distractors
-- 9 animal groups (mammals, birds, fish, reptiles, amphibians, insects, arachnids, mollusks, crustaceans)
-- Dark/light mode support
-- Score tracking
-- API response caching (5-min TTL)
+### Hard
+- **Distractors**: Same family as question
+- **Fallback**: Order level if family lacks enough species
+- **Example**: Show a lion, give options: lion, tiger, leopard, cheetah (all big cats/Felidae)
+
+### Expert
+- **Distractors**: Same genus as question
+- **Fallback**: Family → Order if insufficient data
+- **Example**: Show a lion, give options: lion, tiger, liger, snow leopard (all Panthera/big cats)
+
+## Features
+
+- 9 animal groups selectable (mammals, birds, fish, reptiles, amphibians, insects, arachnids, mollusks, crustaceans)
+- Dark/light mode
+- Score tracking per session
+- API caching (5-min TTL, ~70% fewer calls)
 - Rate limiting (30 req/min per IP)
-- Request timeouts (10s per call)
-- Image validation (trusted domains only)
-
-## Project Structure
-
-```
-app/
-  ├── api/eol/route.ts          # iNaturalist API handler with caching/rate-limiting
-  ├── page.tsx                   # Main game page
-  └── layout.tsx                 # Root layout with theme provider
-
-components/
-  ├── score-board-with-settings.tsx  # Combined score + settings panel
-  ├── game-card.tsx              # Question display
-  ├── loading-spinner.tsx
-  └── ui/                        # shadcn components
-
-lib/
-  ├── eol-api.ts                # iNaturalist API client
-  ├── cache.ts                  # Simple TTL cache manager
-  └── image-utils.ts            # Image validation utilities
-```
-
-## Running Locally
-
-```bash
-npm install
-npm run dev
-```
-
-Visit `http://localhost:3000`
-
-## Production Build
-
-```bash
-npm run build
-npm run start
-```
-
-Build passes strict TypeScript checking with no errors.
-
-## Notes
-
-- Difficulty modes determine distractor taxonomy level (same class → same family → same genus)
-- Images only from iNaturalist, Cloudinary, Flickr, Wikimedia (security)
-- API failures gracefully retry with exponential backoff
-- Caching reduces API calls by ~70%
-- Score resets when difficulty changes
+- Request timeouts (10s per API call)
+- Image validation (iNaturalist, Cloudinary, Flickr, Wikimedia only)
+- Graceful retry with exponential backoff on failures
